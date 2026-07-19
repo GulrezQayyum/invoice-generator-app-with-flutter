@@ -18,7 +18,14 @@ class BusinessProvider extends ChangeNotifier {
   Future<void> _initializeSettings() async {
     try {
       final savedSettings = await _dbService.getSettings();
-      _settings = savedSettings ?? AppSettings();
+      _settings = savedSettings ??
+          AppSettings(
+            currency: 'USD',
+            defaultTaxPercentage: 10.0,
+            invoicePrefix: 'INV',
+            nextInvoiceNumber: 1,
+            companyLogoPath: null,
+          );
 
       _businessInfo = BusinessInfo(
         companyName: 'Your Company',
@@ -30,14 +37,22 @@ class BusinessProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error initializing settings: $e');
-      _settings = AppSettings();
+      debugPrint('Error initializing settings: $e');
+      _settings = AppSettings(
+        currency: 'USD',
+        defaultTaxPercentage: 10.0,
+        invoicePrefix: 'INV',
+        nextInvoiceNumber: 1,
+        companyLogoPath: null,
+      );
       _businessInfo = BusinessInfo(
         companyName: 'Your Company',
         address: '123 Business St, City',
         email: 'info@company.com',
         phoneNumber: '+1-XXX-XXX-XXXX',
+        logoPath: null,
       );
+      notifyListeners();
     }
   }
 
@@ -57,7 +72,7 @@ class BusinessProvider extends ChangeNotifier {
       );
       notifyListeners();
     } catch (e) {
-      print('Error updating business info: $e');
+      debugPrint('Error updating business info: $e');
       rethrow;
     }
   }
@@ -85,7 +100,7 @@ class BusinessProvider extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      print('Error updating settings: $e');
+      debugPrint('Error updating settings: $e');
       rethrow;
     }
   }
@@ -98,41 +113,30 @@ class BusinessProvider extends ChangeNotifier {
       await _dbService.saveSettings(_settings);
       notifyListeners();
     } catch (e) {
-      print('Error incrementing invoice number: $e');
+      debugPrint('Error incrementing invoice number: $e');
       rethrow;
     }
   }
 
   String generateInvoiceNumber() {
-    final number = _settings.generateInvoiceNumber();
-    return number;
+    return _settings.generateInvoiceNumber();
   }
 
   Future<void> resetSettings() async {
     try {
-      _settings = AppSettings();
+      _settings = AppSettings(
+        currency: 'USD',
+        defaultTaxPercentage: 10.0,
+        invoicePrefix: 'INV',
+        nextInvoiceNumber: 1,
+        companyLogoPath: null,
+      );
       await _dbService.saveSettings(_settings);
       notifyListeners();
     } catch (e) {
-      print('Error resetting settings: $e');
+      debugPrint('Error resetting settings: $e');
       rethrow;
     }
-  }
-
-  BusinessInfo copyWith({
-    String? companyName,
-    String? address,
-    String? email,
-    String? phoneNumber,
-    String? logoPath,
-  }) {
-    return BusinessInfo(
-      companyName: companyName ?? _businessInfo.companyName,
-      address: address ?? _businessInfo.address,
-      email: email ?? _businessInfo.email,
-      phoneNumber: phoneNumber ?? _businessInfo.phoneNumber,
-      logoPath: logoPath ?? _businessInfo.logoPath,
-    );
   }
 }
 

@@ -6,23 +6,24 @@ class AppSettings {
   final String? companyLogoPath;
 
   AppSettings({
-    required this.currency,
-    required this.defaultTaxPercentage,
-    required this.invoicePrefix,
-    required this.nextInvoiceNumber,
-    required this.companyLogoPath,
-});
+    this.currency = 'USD',
+    this.defaultTaxPercentage = 10.0,
+    this.invoicePrefix = 'INV',
+    this.nextInvoiceNumber = 1,
+    this.companyLogoPath,
+  });
 
   String generateInvoiceNumber() {
     return '$invoicePrefix-${nextInvoiceNumber.toString().padLeft(3, '0')}';
   }
+
   AppSettings copyWith({
     String? currency,
     double? defaultTaxPercentage,
     String? invoicePrefix,
     int? nextInvoiceNumber,
     String? companyLogoPath,
-}) {
+  }) {
     return AppSettings(
       currency: currency ?? this.currency,
       defaultTaxPercentage: defaultTaxPercentage ?? this.defaultTaxPercentage,
@@ -31,6 +32,7 @@ class AppSettings {
       companyLogoPath: companyLogoPath ?? this.companyLogoPath,
     );
   }
+
   Map<String, dynamic> toJson() {
     return {
       'currency': currency,
@@ -40,13 +42,14 @@ class AppSettings {
       'companyLogoPath': companyLogoPath,
     };
   }
-factory AppSettings.fromJson(Map<String, dynamic> json) {
-  return AppSettings(
-    currency: json['currency'] ?? 'USD',
-    defaultTaxPercentage: json['defaultTaxPercentage'] ?? 10.0,
-    invoicePrefix: json['invoicePrefix'] ?? 'INV',
-    nextInvoiceNumber: json['nextInvoiceNumber'] ?? 1,
-    companyLogoPath: json['companyLogoPath'],
-  );
-}
+
+  factory AppSettings.fromJson(Map<String, dynamic> json) {
+    return AppSettings(
+      currency: json['currency'] ?? 'USD',
+      defaultTaxPercentage: (json['defaultTaxPercentage'] as num?)?.toDouble() ?? 10.0,
+      invoicePrefix: json['invoicePrefix'] ?? 'INV',
+      nextInvoiceNumber: json['nextInvoiceNumber'] ?? 1,
+      companyLogoPath: json['companyLogoPath'],
+    );
+  }
 }

@@ -214,11 +214,7 @@ class DatabaseService {
 
   Future<double> getTotalRevenue() async {
     final invoices = await getAllInvoices();
-    double total = 0.0;
-    for (final invoice in invoices) {
-      total += invoice.total;
-    }
-    return total;
+    return invoices.fold<double>(0.0, (double sum, Invoice invoice) => sum + invoice.total);
   }
 
   Future<List<Invoice>> getRecentInvoices({int limit = 5}) async {
@@ -234,22 +230,22 @@ class DatabaseService {
 
   Invoice _parseInvoice(Map<String, dynamic> row) {
     return Invoice(
-      id: row['id'],
-      invoiceNumber: row['invoiceNumber'],
-      invoiceDate: DateTime.parse(row['invoiceDate']),
-      dueDate: DateTime.parse(row['dueDate']),
-      businessInfo: BusinessInfo.fromJson(jsonDecode(row['businessInfo']) as Map<String, dynamic>),
-      customerInfo: CustomerInfo.fromJson(jsonDecode(row['customerInfo']) as Map<String, dynamic>),
-      items: (jsonDecode(row['items']) as List)
+      id: row['id'] as String,
+      invoiceNumber: row['invoiceNumber'] as String,
+      invoiceDate: DateTime.parse(row['invoiceDate'] as String),
+      dueDate: DateTime.parse(row['dueDate'] as String),
+      businessInfo: BusinessInfo.fromJson(jsonDecode(row['businessInfo'] as String) as Map<String, dynamic>),
+      customerInfo: CustomerInfo.fromJson(jsonDecode(row['customerInfo'] as String) as Map<String, dynamic>),
+      items: (jsonDecode(row['items'] as String) as List)
           .map((item) => InvoiceItem.fromJson(item as Map<String, dynamic>))
           .toList(),
       taxPercentage: (row['taxPercentage'] as num).toDouble(),
-      notes: row['notes'],
+      notes: row['notes'] as String?,
       status: InvoiceStatus.values
           .firstWhere((e) => e.toString().split('.').last == row['status']),
-      currency: row['currency'],
-      createdAt: DateTime.parse(row['createdAt']),
-      updatedAt: DateTime.parse(row['updatedAt']),
+      currency: row['currency'] as String,
+      createdAt: DateTime.parse(row['createdAt'] as String),
+      updatedAt: DateTime.parse(row['updatedAt'] as String),
     );
   }
 

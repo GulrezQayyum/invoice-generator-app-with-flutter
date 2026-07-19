@@ -1,8 +1,8 @@
 import 'package:intl/intl.dart';
 
-enum InvoiceStatus{paid, unpaid, overdue}
+enum InvoiceStatus { paid, unpaid, overdue }
 
-class InvoiceItem{
+class InvoiceItem {
   final String id;
   final String name;
   final int quantity;
@@ -14,8 +14,9 @@ class InvoiceItem{
     required this.name,
     required this.quantity,
     required this.unitPrice,
-    required this.discount
-});
+    this.discount,
+  });
+
   double get subtotal => quantity * unitPrice;
   double get discountAmount => subtotal * ((discount ?? 0) / 100);
   double get total => subtotal - discountAmount;
@@ -29,14 +30,15 @@ class InvoiceItem{
       'discount': discount,
     };
   }
+
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     return InvoiceItem(
       id: json['id'],
       name: json['name'],
       quantity: json['quantity'],
-      unitPrice: json['unitPrice'],
-      discount: json['discount'],
-  );
+      unitPrice: (json['unitPrice'] as num).toDouble(),
+      discount: (json['discount'] as num?)?.toDouble(),
+    );
   }
 }
 
@@ -52,7 +54,7 @@ class BusinessInfo {
     required this.address,
     required this.phoneNumber,
     required this.email,
-    required this.logoPath,
+    this.logoPath,
   });
 
   Map<String, dynamic> toJson() {
@@ -64,18 +66,19 @@ class BusinessInfo {
       'logoPath': logoPath,
     };
   }
+
   factory BusinessInfo.fromJson(Map<String, dynamic> json) {
     return BusinessInfo(
-      companyName: json['companyName'],
-      address: json['address'],
-      phoneNumber: json['phoneNumber'],
-      email: json['email'],
+      companyName: json['companyName'] ?? '',
+      address: json['address'] ?? '',
+      phoneNumber: json['phoneNumber'] ?? '',
+      email: json['email'] ?? '',
       logoPath: json['logoPath'],
     );
   }
 }
 
-class CustomerInfo{
+class CustomerInfo {
   final String name;
   final String address;
   final String phoneNumber;
@@ -96,12 +99,13 @@ class CustomerInfo{
       'email': email,
     };
   }
+
   factory CustomerInfo.fromJson(Map<String, dynamic> json) {
     return CustomerInfo(
-      name: json['name'],
-      address: json['address'],
-      phoneNumber: json['phoneNumber'],
-      email: json['email'],
+      name: json['name'] ?? '',
+      address: json['address'] ?? '',
+      phoneNumber: json['phoneNumber'] ?? '',
+      email: json['email'] ?? '',
     );
   }
 }
@@ -176,9 +180,9 @@ class Invoice {
       currency: currency ?? this.currency,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-
     );
   }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -190,10 +194,7 @@ class Invoice {
       'items': items.map((item) => item.toJson()).toList(),
       'taxPercentage': taxPercentage,
       'notes': notes,
-      'status': status
-          .toString()
-          .split('.')
-          .last,
+      'status': status.toString().split('.').last,
       'currency': currency,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
@@ -211,19 +212,15 @@ class Invoice {
       items: (json['items'] as List)
           .map((item) => InvoiceItem.fromJson(item))
           .toList(),
-      taxPercentage: json['taxPercentage'],
+      taxPercentage: (json['taxPercentage'] as num).toDouble(),
       notes: json['notes'],
-      status: InvoiceStatus.values
-          .firstWhere((e) =>
-      e
-          .toString()
-          .split('.')
-          .last == json['status']),
+      status: InvoiceStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == json['status'],
+        orElse: () => InvoiceStatus.unpaid,
+      ),
       currency: json['currency'] ?? 'USD',
       createdAt: DateTime.parse(json['createdAt']),
       updatedAt: DateTime.parse(json['updatedAt']),
     );
   }
 }
-
-
