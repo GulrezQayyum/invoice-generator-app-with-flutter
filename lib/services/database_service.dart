@@ -11,7 +11,8 @@ class DatabaseService {
   static const String settingsTable = 'settings';
 
   Future<Database> get database async {
-    _database ??= await initializeDatabase();
+    if (_database != null) return _database!;
+    _database = await initializeDatabase();
     return _database!;
   }
 
@@ -241,8 +242,10 @@ class DatabaseService {
           .toList(),
       taxPercentage: (row['taxPercentage'] as num).toDouble(),
       notes: row['notes'] as String?,
-      status: InvoiceStatus.values
-          .firstWhere((e) => e.toString().split('.').last == row['status']),
+      status: InvoiceStatus.values.firstWhere(
+        (e) => e.toString().split('.').last == row['status'],
+        orElse: () => InvoiceStatus.unpaid,
+      ),
       currency: row['currency'] as String,
       createdAt: DateTime.parse(row['createdAt'] as String),
       updatedAt: DateTime.parse(row['updatedAt'] as String),

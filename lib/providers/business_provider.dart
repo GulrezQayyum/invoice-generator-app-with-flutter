@@ -5,8 +5,23 @@ import '../services/database_service.dart';
 
 class BusinessProvider extends ChangeNotifier {
   final DatabaseService _dbService = DatabaseService();
-  late AppSettings _settings;
-  late BusinessInfo _businessInfo;
+  
+  // Initialized with default values to prevent LateInitializationError
+  AppSettings _settings = AppSettings(
+    currency: 'USD',
+    defaultTaxPercentage: 10.0,
+    invoicePrefix: 'INV',
+    nextInvoiceNumber: 1,
+    companyLogoPath: null,
+  );
+  
+  BusinessInfo _businessInfo = BusinessInfo(
+    companyName: 'Your Company',
+    address: '123 Business St, City',
+    email: 'info@company.com',
+    phoneNumber: '+1-XXX-XXX-XXXX',
+    logoPath: null,
+  );
 
   BusinessInfo get businessInfo => _businessInfo;
   AppSettings get settings => _settings;
@@ -18,14 +33,9 @@ class BusinessProvider extends ChangeNotifier {
   Future<void> _initializeSettings() async {
     try {
       final savedSettings = await _dbService.getSettings();
-      _settings = savedSettings ??
-          AppSettings(
-            currency: 'USD',
-            defaultTaxPercentage: 10.0,
-            invoicePrefix: 'INV',
-            nextInvoiceNumber: 1,
-            companyLogoPath: null,
-          );
+      if (savedSettings != null) {
+        _settings = savedSettings;
+      }
 
       _businessInfo = BusinessInfo(
         companyName: 'Your Company',
@@ -38,21 +48,7 @@ class BusinessProvider extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Error initializing settings: $e');
-      _settings = AppSettings(
-        currency: 'USD',
-        defaultTaxPercentage: 10.0,
-        invoicePrefix: 'INV',
-        nextInvoiceNumber: 1,
-        companyLogoPath: null,
-      );
-      _businessInfo = BusinessInfo(
-        companyName: 'Your Company',
-        address: '123 Business St, City',
-        email: 'info@company.com',
-        phoneNumber: '+1-XXX-XXX-XXXX',
-        logoPath: null,
-      );
-      notifyListeners();
+      // If initialization fails, we already have default values set
     }
   }
 
