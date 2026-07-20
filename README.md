@@ -126,7 +126,7 @@ lib/
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/invoice_generator.git
+git clone https://github.com/GulrezQayyum/invoice-generator-app-with-flutter
 cd invoice_generator
 ```
 
