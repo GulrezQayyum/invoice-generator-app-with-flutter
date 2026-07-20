@@ -415,9 +415,3 @@ Feel free to fork, modify, and improve this project. Contributions are welcome!
 ## 📞 Support
 
 For issues, questions, or suggestions, please open an issue in the GitHub repository.
-
----
-
-**Last Updated:** January 2024  
-**Flutter Version:** 3.0+  
-**Dart Version:** 3.0+
