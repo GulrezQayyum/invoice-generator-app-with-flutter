@@ -185,12 +185,12 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           labelText: 'Customer Name',
                           hintText: 'Enter customer name',
                         ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Customer name is required';
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Customer name is required';
+                            }
+                            return null;
                           }
-                          return null;
-                        },
                       ),
                       const SizedBox(height: 12),
                       TextFormField(
@@ -359,9 +359,14 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                           hintText: 'Enter tax percentage',
                         ),
                         validator: (value) {
-                          if (value == null || value.isEmpty) {
+                          if (value == null || value.trim().isEmpty) {
                             return 'Tax percentage is required';
                           }
+
+                          if (double.tryParse(value.trim()) == null) {
+                            return 'Enter a valid number';
+                          }
+
                           return null;
                         },
                       ),
@@ -503,11 +508,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     final newItem = InvoiceItem(
       id: const Uuid().v4(),
       name: _itemNameController.text,
-      quantity: int.parse(_quantityController.text),
-      unitPrice: double.parse(_unitPriceController.text),
-      discount: _discountController.text.isNotEmpty
-          ? double.parse(_discountController.text)
-          : null,
+      quantity: int.tryParse(_quantityController.text.trim()) ?? 0,
+      unitPrice: double.tryParse(_unitPriceController.text.trim()) ?? 0.0,
+      discount: _discountController.text.trim().isEmpty
+          ? null
+          : double.tryParse(_discountController.text.trim()),
     );
 
     setState(() {

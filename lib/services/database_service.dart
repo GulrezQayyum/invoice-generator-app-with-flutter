@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:developer'; // for logging
+import 'dart:developer';
+import 'dart:io';
 import 'package:sqflite/sqflite.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:path/path.dart';
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import '../models/invoice_model.dart';
 import '../models/settings_model.dart';
 
@@ -12,37 +15,62 @@ class DatabaseService {
   static const String invoicesTable = 'invoices';
   static const String settingsTable = 'settings';
 
+  // Synchronization lock for initialization
+  static final _initLock = Object();
+  static Completer<Database>? _initCompleter;
+
   // Private constructor for singleton
   DatabaseService._privateConstructor();
   static final DatabaseService instance = DatabaseService._privateConstructor();
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await initializeDatabase();
-    return _database!;
+    return await initializeDatabase();
   }
 
   Future<Database> initializeDatabase() async {
+    // 1. Return already initialized database
+    if (_database != null) return _database!;
+
+    // 2. If initialization is already in progress, wait for it
+    if (_initCompleter != null) return _initCompleter!.future;
+
+    _initCompleter = Completer<Database>();
+
     try {
       String dbPath;
       if (kIsWeb) {
-        dbPath = dbName; // just the file name, no folder path
+        dbPath = dbName;
       } else {
-        final dbDir = await getDatabasesPath();
+        // Use path_provider for more reliable paths on Desktop/Mobile
+        final Directory appDocDir = await getApplicationSupportDirectory();
+        final String dbDir = path.join(appDocDir.path, 'databases');
+        
+        // Ensure the directory exists
+        final directory = Directory(dbDir);
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
+        }
+        
         dbPath = path.join(dbDir, dbName);
       }
+      
       print('📁 Opening database at: $dbPath');
 
-      final db = await openDatabase(
+      _database = await openDatabase(
         dbPath,
         version: 1,
         onCreate: _createTables,
       );
-      print('✅ Database opened');
-      return db;
+      
+      print('✅ Database opened successfully');
+      _initCompleter!.complete(_database);
+      _initCompleter = null; // Clear completer after success
+      return _database!;
     } catch (e, stack) {
-      print('❌ openDatabase failed: $e');
-      print(stack);
+      log('❌ Database initialization failed: $e', stackTrace: stack);
+      _initCompleter?.completeError(e, stack);
+      _initCompleter = null; // Clear so we can retry later
       rethrow;
     }
   }
@@ -79,8 +107,7 @@ class DatabaseService {
     ''');
       print('✅ Tables created successfully');
     } catch (e, stack) {
-      print('❌ Failed to create tables: $e');
-      print(stack);
+      log('❌ Failed to create tables: $e', stackTrace: stack);
       rethrow;
     }
   }
@@ -88,231 +115,154 @@ class DatabaseService {
   // ──────────────── INVOICE CRUD ────────────────
 
   Future<void> createInvoice(Invoice invoice) async {
-    try {
-      final db = await database;
-      await db.insert(
-        invoicesTable,
-        _invoiceToMap(invoice),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } catch (e, stack) {
-      log('createInvoice failed for ${invoice.id}: $e', stackTrace: stack);
-      rethrow;
-    }
+    final db = await database;
+    await db.insert(
+      invoicesTable,
+      _invoiceToMap(invoice),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<Invoice?> getInvoice(String id) async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        invoicesTable,
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-      if (result.isEmpty) return null;
-      return _parseInvoiceSafe(result.first);
-    } catch (e, stack) {
-      log('getInvoice failed for $id: $e', stackTrace: stack);
-      return null;
-    }
+    final db = await database;
+    final result = await db.query(
+      invoicesTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+    if (result.isEmpty) return null;
+    return _parseInvoiceSafe(result.first);
   }
 
   Future<List<Invoice>> getAllInvoices() async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        invoicesTable,
-        orderBy: 'createdAt DESC',
-      );
-      return _parseInvoiceListSafe(result);
-    } catch (e, stack) {
-      log('getAllInvoices failed: $e', stackTrace: stack);
-      return [];
-    }
+    final db = await database;
+    final result = await db.query(
+      invoicesTable,
+      orderBy: 'createdAt DESC',
+    );
+    return _parseInvoiceListSafe(result);
   }
 
   Future<List<Invoice>> searchInvoices(String query) async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        invoicesTable,
-        where: 'invoiceNumber LIKE ? OR customerInfo LIKE ?',
-        whereArgs: ['%$query%', '%$query%'],
-        orderBy: 'createdAt DESC',
-      );
-      return _parseInvoiceListSafe(result);
-    } catch (e, stack) {
-      log('searchInvoices failed: $e', stackTrace: stack);
-      return [];
-    }
+    final db = await database;
+    final result = await db.query(
+      invoicesTable,
+      where: 'invoiceNumber LIKE ? OR customerInfo LIKE ?',
+      whereArgs: ['%$query%', '%$query%'],
+      orderBy: 'createdAt DESC',
+    );
+    return _parseInvoiceListSafe(result);
   }
 
   Future<List<Invoice>> getInvoicesByStatus(String status) async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        invoicesTable,
-        where: 'status = ?',
-        whereArgs: [status],
-        orderBy: 'createdAt DESC',
-      );
-      return _parseInvoiceListSafe(result);
-    } catch (e, stack) {
-      log('getInvoicesByStatus failed: $e', stackTrace: stack);
-      return [];
-    }
+    final db = await database;
+    final result = await db.query(
+      invoicesTable,
+      where: 'status = ?',
+      whereArgs: [status],
+      orderBy: 'createdAt DESC',
+    );
+    return _parseInvoiceListSafe(result);
   }
 
   Future<void> updateInvoice(Invoice invoice) async {
-    try {
-      final db = await database;
-      final map = _invoiceToMap(invoice);
-      map.remove('id'); // ensure we don't overwrite the PK
-      await db.update(
-        invoicesTable,
-        map,
-        where: 'id = ?',
-        whereArgs: [invoice.id],
-      );
-    } catch (e, stack) {
-      log('updateInvoice failed for ${invoice.id}: $e', stackTrace: stack);
-      rethrow;
-    }
+    final db = await database;
+    final map = _invoiceToMap(invoice);
+    map.remove('id');
+    await db.update(
+      invoicesTable,
+      map,
+      where: 'id = ?',
+      whereArgs: [invoice.id],
+    );
   }
 
   Future<void> deleteInvoice(String id) async {
-    try {
-      final db = await database;
-      await db.delete(
-        invoicesTable,
-        where: 'id = ?',
-        whereArgs: [id],
-      );
-    } catch (e, stack) {
-      log('deleteInvoice failed for $id: $e', stackTrace: stack);
-      rethrow;
-    }
+    final db = await database;
+    await db.delete(
+      invoicesTable,
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // ──────────────── DASHBOARD STATISTICS ────────────────
 
   Future<int> getTotalInvoices() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery('SELECT COUNT(*) as count FROM $invoicesTable');
-      return (result.first['count'] as int?) ?? 0;
-    } catch (e) {
-      log('getTotalInvoices failed: $e');
-      return 0;
-    }
+    final db = await database;
+    final result = await db.rawQuery('SELECT COUNT(*) as count FROM $invoicesTable');
+    return (result.first['count'] as int?) ?? 0;
   }
 
   Future<int> getPaidInvoices() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM $invoicesTable WHERE status = ?',
-        ['paid'],
-      );
-      return (result.first['count'] as int?) ?? 0;
-    } catch (e) {
-      log('getPaidInvoices failed: $e');
-      return 0;
-    }
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $invoicesTable WHERE status = ?',
+      ['paid'],
+    );
+    return (result.first['count'] as int?) ?? 0;
   }
 
   Future<int> getUnpaidInvoices() async {
-    try {
-      final db = await database;
-      final result = await db.rawQuery(
-        'SELECT COUNT(*) as count FROM $invoicesTable WHERE status = ?',
-        ['unpaid'],
-      );
-      return (result.first['count'] as int?) ?? 0;
-    } catch (e) {
-      log('getUnpaidInvoices failed: $e');
-      return 0;
-    }
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as count FROM $invoicesTable WHERE status = ?',
+      ['unpaid'],
+    );
+    return (result.first['count'] as int?) ?? 0;
   }
 
   Future<double> getTotalRevenue() async {
-    try {
-      final invoices = await getAllInvoices();
-      return invoices.fold<double>(0.0, (sum, inv) => sum + inv.total);
-    } catch (e) {
-      log('getTotalRevenue failed: $e');
-      return 0.0;
-    }
+    final invoices = await getAllInvoices();
+    return invoices.fold<double>(0.0, (sum, inv) => sum + inv.total);
   }
 
   Future<List<Invoice>> getRecentInvoices({int limit = 5}) async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        invoicesTable,
-        orderBy: 'createdAt DESC',
-        limit: limit,
-      );
-      return _parseInvoiceListSafe(result);
-    } catch (e) {
-      log('getRecentInvoices failed: $e');
-      return [];
-    }
+    final db = await database;
+    final result = await db.query(
+      invoicesTable,
+      orderBy: 'createdAt DESC',
+      limit: limit,
+    );
+    return _parseInvoiceListSafe(result);
   }
 
   // ──────────────── SETTINGS ────────────────
 
   Future<void> saveSettings(AppSettings settings) async {
-    try {
-      final db = await database;
-      await db.insert(
-        settingsTable,
-        {
-          'id': 'app_settings',
-          'currency': settings.currency,
-          'defaultTaxPercentage': settings.defaultTaxPercentage,
-          'invoicePrefix': settings.invoicePrefix,
-          'nextInvoiceNumber': settings.nextInvoiceNumber,
-          'companyLogoPath': settings.companyLogoPath,
-        },
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    } catch (e, stack) {
-      log('saveSettings failed: $e', stackTrace: stack);
-      rethrow;
-    }
+    final db = await database;
+    await db.insert(
+      settingsTable,
+      {
+        'id': 'app_settings',
+        'currency': settings.currency,
+        'defaultTaxPercentage': settings.defaultTaxPercentage,
+        'invoicePrefix': settings.invoicePrefix,
+        'nextInvoiceNumber': settings.nextInvoiceNumber,
+        'companyLogoPath': settings.companyLogoPath,
+      },
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
   }
 
   Future<AppSettings?> getSettings() async {
-    try {
-      final db = await database;
-      final result = await db.query(
-        settingsTable,
-        where: 'id = ?',
-        whereArgs: ['app_settings'],
-      );
-      if (result.isEmpty) return null;
-      return AppSettings.fromJson(result.first);
-    } catch (e, stack) {
-      log('getSettings failed: $e', stackTrace: stack);
-      return null;
-    }
+    final db = await database;
+    final result = await db.query(
+      settingsTable,
+      where: 'id = ?',
+      whereArgs: ['app_settings'],
+    );
+    if (result.isEmpty) return null;
+    return AppSettings.fromJson(result.first);
   }
-
-  // ──────────────── UTILITY ────────────────
 
   Future<void> clearDatabase() async {
-    try {
-      final db = await database;
-      await db.delete(invoicesTable);
-      await db.delete(settingsTable);
-    } catch (e, stack) {
-      log('clearDatabase failed: $e', stackTrace: stack);
-      rethrow;
-    }
+    final db = await database;
+    await db.delete(invoicesTable);
+    await db.delete(settingsTable);
   }
 
-  // ──────────────── SAFE PARSING HELPERS ────────────────
+  // ──────────────── HELPERS ────────────────
 
   Map<String, dynamic> _invoiceToMap(Invoice invoice) {
     return {
@@ -333,7 +283,6 @@ class DatabaseService {
   }
 
   Invoice _parseInvoiceSafe(Map<String, dynamic> row) {
-    // Helper: safely parse date
     DateTime _parseDate(dynamic value) {
       if (value == null) return DateTime.now();
       try {
@@ -343,7 +292,6 @@ class DatabaseService {
       }
     }
 
-    // Helper: safely decode JSON
     dynamic _safeDecode(dynamic value, {dynamic fallback}) {
       if (value == null) return fallback;
       try {
@@ -353,12 +301,11 @@ class DatabaseService {
       }
     }
 
-    // Helper: safely parse enum
     InvoiceStatus _parseStatus(dynamic value) {
       if (value == null) return InvoiceStatus.unpaid;
       try {
         return InvoiceStatus.values.firstWhere(
-              (e) => e.toString().split('.').last == value,
+          (e) => e.toString().split('.').last == value,
           orElse: () => InvoiceStatus.unpaid,
         );
       } catch (_) {
@@ -366,7 +313,6 @@ class DatabaseService {
       }
     }
 
-    // Business info
     final businessJson = _safeDecode(row['businessInfo'], fallback: {}) as Map;
     final customerJson = _safeDecode(row['customerInfo'], fallback: {}) as Map;
     final itemsJson = _safeDecode(row['items'], fallback: []) as List;
@@ -395,7 +341,7 @@ class DatabaseService {
       try {
         return _parseInvoiceSafe(row);
       } catch (e) {
-        log('Skipping corrupted invoice row: $e');
+        log('Skipping corrupted row: $e');
         return null;
       }
     }).whereType<Invoice>().toList();

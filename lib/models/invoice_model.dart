@@ -33,10 +33,10 @@ class InvoiceItem {
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     return InvoiceItem(
-      id: json['id'],
-      name: json['name'],
-      quantity: json['quantity'],
-      unitPrice: (json['unitPrice'] as num).toDouble(),
+      id: json['id']?.toString() ?? '',
+      name: json['name']?.toString() ?? '',
+      quantity: (json['quantity'] as num?)?.toInt() ?? 0,
+      unitPrice: (json['unitPrice'] as num?)?.toDouble() ?? 0.0,
       discount: (json['discount'] as num?)?.toDouble(),
     );
   }
@@ -69,11 +69,11 @@ class BusinessInfo {
 
   factory BusinessInfo.fromJson(Map<String, dynamic> json) {
     return BusinessInfo(
-      companyName: json['companyName'] ?? '',
-      address: json['address'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? '',
-      email: json['email'] ?? '',
-      logoPath: json['logoPath'],
+      companyName: json['companyName']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
+      logoPath: json['logoPath']?.toString(),
     );
   }
 }
@@ -102,10 +102,10 @@ class CustomerInfo {
 
   factory CustomerInfo.fromJson(Map<String, dynamic> json) {
     return CustomerInfo(
-      name: json['name'] ?? '',
-      address: json['address'] ?? '',
-      phoneNumber: json['phoneNumber'] ?? '',
-      email: json['email'] ?? '',
+      name: json['name']?.toString() ?? '',
+      address: json['address']?.toString() ?? '',
+      phoneNumber: json['phoneNumber']?.toString() ?? '',
+      email: json['email']?.toString() ?? '',
     );
   }
 }
@@ -141,10 +141,8 @@ class Invoice {
     required this.updatedAt,
   });
 
-  double get subtotal => items.fold(0, (sum, item) => sum + item.subtotal);
-
+  double get subtotal => items.fold(0.0, (sum, item) => sum + item.subtotal);
   double get taxAmount => subtotal * (taxPercentage / 100);
-
   double get total => subtotal + taxAmount;
 
   bool get isOverdue {
@@ -202,25 +200,35 @@ class Invoice {
   }
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
+    DateTime _parseDate(dynamic value) {
+      if (value == null) return DateTime.now();
+      try {
+        return DateTime.parse(value.toString());
+      } catch (_) {
+        return DateTime.now();
+      }
+    }
+
     return Invoice(
-      id: json['id'],
-      invoiceNumber: json['invoiceNumber'],
-      invoiceDate: DateTime.parse(json['invoiceDate']),
-      dueDate: DateTime.parse(json['dueDate']),
-      businessInfo: BusinessInfo.fromJson(json['businessInfo']),
-      customerInfo: CustomerInfo.fromJson(json['customerInfo']),
-      items: (json['items'] as List)
-          .map((item) => InvoiceItem.fromJson(item))
-          .toList(),
-      taxPercentage: (json['taxPercentage'] as num).toDouble(),
-      notes: json['notes'],
+      id: json['id']?.toString() ?? '',
+      invoiceNumber: json['invoiceNumber']?.toString() ?? '',
+      invoiceDate: _parseDate(json['invoiceDate']),
+      dueDate: _parseDate(json['dueDate']),
+      businessInfo: BusinessInfo.fromJson(json['businessInfo'] ?? {}),
+      customerInfo: CustomerInfo.fromJson(json['customerInfo'] ?? {}),
+      items: (json['items'] as List?)
+              ?.map((item) => InvoiceItem.fromJson(item))
+              .toList() ??
+          [],
+      taxPercentage: (json['taxPercentage'] as num?)?.toDouble() ?? 0.0,
+      notes: json['notes']?.toString(),
       status: InvoiceStatus.values.firstWhere(
         (e) => e.toString().split('.').last == json['status'],
         orElse: () => InvoiceStatus.unpaid,
       ),
-      currency: json['currency'] ?? 'USD',
-      createdAt: DateTime.parse(json['createdAt']),
-      updatedAt: DateTime.parse(json['updatedAt']),
+      currency: json['currency']?.toString() ?? 'USD',
+      createdAt: _parseDate(json['createdAt']),
+      updatedAt: _parseDate(json['updatedAt']),
     );
   }
 }

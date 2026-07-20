@@ -176,14 +176,6 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
-  foundation:
-    dependency: "direct main"
-    description:
-      name: foundation
-      sha256: "6f1fda07bd2a422145724b0f94ee68fabac95fabff982d5f334fe1a38cbed6a7"
-      url: "https://pub.dev"
-    source: hosted
-    version: "0.0.5"
   glob:
     dependency: transitive
     description:
@@ -550,7 +542,7 @@ packages:
     source: hosted
     version: "2.4.3"
   sqflite_common:
-    dependency: transitive
+    dependency: "direct main"
     description:
       name: sqflite_common
       sha256: "5bf6a55c166e73bf651ba7ec3ed486e577620e3dc8f3a9c6a258a8031b624590"
@@ -597,6 +589,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.5.0"
+  sqlite3_flutter_libs:
+    dependency: "direct main"
+    description:
+      name: sqlite3_flutter_libs
+      sha256: eeb9e3a45207649076b808f8a5a74d68770d0b7f26ccef6d5f43106eee5375ad
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.5.42"
   stack_trace:
     dependency: transitive
     description:

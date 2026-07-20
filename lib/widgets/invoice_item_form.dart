@@ -119,19 +119,32 @@ class _InvoiceItemFormState extends State<InvoiceItemForm> {
   }
 
   void save() {
-    if (formKey.currentState!.validate()) {
-      final item = InvoiceItem(
-        id: widget.initialItem?.id ?? '',
-        name: nameController.text,
-        quantity: int.parse(quantityController.text),
-        unitPrice: double.parse(unitPriceController.text),
-        discount:
-        discountController.text.isEmpty ||
-            discountController.text == '0'
-            ? null
-            : double.parse(discountController.text),
-      );
-      widget.onSave(item);
-    }
+    if (!formKey.currentState!.validate()) return;
+
+    final quantity = int.tryParse(
+      quantityController.text.replaceAll(RegExp(r'[^0-9]'), ''),
+    ) ??
+        0;
+
+    final unitPrice = double.tryParse(
+      unitPriceController.text.replaceAll(RegExp(r'[^0-9.]'), ''),
+    ) ??
+        0.0;
+
+    final discount = discountController.text.trim().isEmpty
+        ? null
+        : double.tryParse(
+      discountController.text.replaceAll(RegExp(r'[^0-9.]'), ''),
+    );
+
+    final item = InvoiceItem(
+      id: widget.initialItem?.id ?? '',
+      name: nameController.text.trim(),
+      quantity: quantity,
+      unitPrice: unitPrice,
+      discount: discount,
+    );
+
+    widget.onSave(item);
   }
 }
