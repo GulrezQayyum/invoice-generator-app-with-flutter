@@ -4,8 +4,6 @@ import 'package:uuid/uuid.dart';
 import '../models/invoice_model.dart';
 import '../providers/invoice_provider.dart';
 import '../providers/business_provider.dart';
-import '../theme/app_theme.dart';
-import '../widgets/invoice_item_form.dart';
 
 class CreateInvoiceScreen extends StatefulWidget {
   final Invoice? invoiceToEdit;
@@ -41,6 +39,8 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   late TextEditingController _notesController;
   late TextEditingController _taxPercentageController;
 
+  bool get isEditing => widget.invoiceToEdit != null;
+
   @override
   void initState() {
     super.initState();
@@ -56,13 +56,9 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
     _unitPriceController = TextEditingController();
     _discountController = TextEditingController();
     _notesController = TextEditingController();
+    _taxPercentageController = TextEditingController();
 
-    final businessProvider = context.read<BusinessProvider>();
-    _taxPercentageController = TextEditingController(
-      text: businessProvider.settings.defaultTaxPercentage.toString(),
-    );
-
-    if (widget.invoiceToEdit != null) {
+    if (isEditing) {
       _populateFormWithInvoice(widget.invoiceToEdit!);
     }
   }
@@ -98,316 +94,323 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.invoiceToEdit != null
-            ? 'Edit Invoice'
-            : 'Create Invoice'),
+        title: Text(isEditing ? 'Edit Invoice' : 'Create Invoice'),
         elevation: 0,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Dates Section
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Invoice Dates',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _selectDate(context, true),
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Invoice Date',
-                                ),
-                                child: Text(
-                                  '${_invoiceDate.toLocal()}'.split(' ')[0],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () => _selectDate(context, false),
-                              child: InputDecorator(
-                                decoration: const InputDecoration(
-                                  labelText: 'Due Date',
-                                ),
-                                child: Text(
-                                  '${_dueDate.toLocal()}'.split(' ')[0],
-                                  style: const TextStyle(fontSize: 16),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+      body: Consumer<BusinessProvider>(
+        builder: (context, businessProvider, child) {
+          // Show loading indicator while settings are being loaded
+          if (businessProvider.settings == null) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-              // Customer Information
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Customer Information',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _customerNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Customer Name',
-                          hintText: 'Enter customer name',
-                        ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return 'Customer name is required';
-                            }
-                            return null;
-                          }
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _customerAddressController,
-                        decoration: const InputDecoration(
-                          labelText: 'Address',
-                          hintText: 'Enter customer address',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Address is required';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _customerEmailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          hintText: 'Enter customer email',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Email is required';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Enter a valid email';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _customerPhoneController,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone Number',
-                          hintText: 'Enter customer phone',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Phone number is required';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
+          // Only set default tax if we are creating a new invoice
+          if (!isEditing && _taxPercentageController.text.isEmpty) {
+            _taxPercentageController.text =
+                businessProvider.settings!.defaultTaxPercentage.toString();
+          }
 
-              // Invoice Items
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ---------- Dates Section ----------
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Invoice Items',
+                            'Invoice Dates',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
                             ),
                           ),
-                          ElevatedButton.icon(
-                            onPressed: _showAddItemDialog,
-                            icon: const Icon(Icons.add),
-                            label: const Text('Add Item'),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _selectDate(context, true),
+                                  child: InputDecorator(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Invoice Date',
+                                    ),
+                                    child: Text(
+                                      '${_invoiceDate.toLocal()}'.split(' ')[0],
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: InkWell(
+                                  onTap: () => _selectDate(context, false),
+                                  child: InputDecorator(
+                                    decoration: const InputDecoration(
+                                      labelText: 'Due Date',
+                                    ),
+                                    child: Text(
+                                      '${_dueDate.toLocal()}'.split(' ')[0],
+                                      style: const TextStyle(fontSize: 16),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      if (_items.isEmpty)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            child: Text(
-                              'No items added yet',
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                          ),
-                        )
-                      else
-                        ListView.separated(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _items.length,
-                          separatorBuilder: (_, __) => const Divider(),
-                          itemBuilder: (context, index) {
-                            final item = _items[index];
-                            return Row(
-                              mainAxisAlignment:
-                              MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                    CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        item.name,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        '${item.quantity} × \$${item.unitPrice.toStringAsFixed(2)} = \$${item.total.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey[600],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                PopupMenuButton(
-                                  itemBuilder: (context) => [
-                                    PopupMenuItem(
-                                      value: 'edit',
-                                      child: const Text('Edit'),
-                                      onTap: () =>
-                                          _editItem(index),
-                                    ),
-                                    PopupMenuItem(
-                                      value: 'delete',
-                                      child: const Text('Delete',
-                                          style: TextStyle(
-                                              color: Colors.red)),
-                                      onTap: () {
-                                        setState(() {
-                                          _items.removeAt(index);
-                                        });
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Tax and Notes
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      TextFormField(
-                        controller: _taxPercentageController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Tax Percentage (%)',
-                          hintText: 'Enter tax percentage',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Tax percentage is required';
-                          }
-
-                          if (double.tryParse(value.trim()) == null) {
-                            return 'Enter a valid number';
-                          }
-
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 12),
-                      TextFormField(
-                        controller: _notesController,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          labelText: 'Notes (Optional)',
-                          hintText: 'Add payment instructions or notes',
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-
-              // Submit Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _submitForm,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    child: Text(
-                      widget.invoiceToEdit != null
-                          ? 'Update Invoice'
-                          : 'Create Invoice',
-                      style: const TextStyle(fontSize: 16),
                     ),
                   ),
-                ),
+                  const SizedBox(height: 16),
+
+                  // ---------- Customer Information ----------
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Customer Information',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          TextFormField(
+                            controller: _customerNameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Customer Name',
+                              hintText: 'Enter customer name',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Customer name is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _customerAddressController,
+                            decoration: const InputDecoration(
+                              labelText: 'Address',
+                              hintText: 'Enter customer address',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Address is required';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _customerEmailController,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              hintText: 'Enter customer email',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Email is required';
+                              }
+                              if (!value.contains('@')) {
+                                return 'Enter a valid email';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _customerPhoneController,
+                            decoration: const InputDecoration(
+                              labelText: 'Phone Number',
+                              hintText: 'Enter customer phone',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Phone number is required';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ---------- Invoice Items ----------
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text(
+                                'Invoice Items',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: _showAddItemDialog,
+                                icon: const Icon(Icons.add),
+                                label: const Text('Add Item'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          if (_items.isEmpty)
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                child: Text(
+                                  'No items added yet',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                ),
+                              ),
+                            )
+                          else
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: _items.length,
+                              separatorBuilder: (_, __) => const Divider(),
+                              itemBuilder: (context, index) {
+                                final item = _items[index];
+                                return Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.name,
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          Text(
+                                            '${item.quantity} × \$${item.unitPrice.toStringAsFixed(2)} = \$${item.total.toStringAsFixed(2)}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey[600],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    PopupMenuButton(
+                                      itemBuilder: (context) => [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: const Text('Edit'),
+                                          onTap: () => _editItem(index),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: const Text(
+                                            'Delete',
+                                            style: TextStyle(color: Colors.red),
+                                          ),
+                                          onTap: () {
+                                            setState(() {
+                                              _items.removeAt(index);
+                                            });
+                                          },
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                );
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ---------- Tax and Notes ----------
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          TextFormField(
+                            controller: _taxPercentageController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Tax Percentage (%)',
+                              hintText: 'Enter tax percentage',
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'Tax percentage is required';
+                              }
+                              if (double.tryParse(value.trim()) == null) {
+                                return 'Enter a valid number';
+                              }
+                              return null;
+                            },
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _notesController,
+                            maxLines: 3,
+                            decoration: const InputDecoration(
+                              labelText: 'Notes (Optional)',
+                              hintText: 'Add payment instructions or notes',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+
+                  // ---------- Submit Button ----------
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: _submitForm,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Text(
+                          isEditing ? 'Update Invoice' : 'Create Invoice',
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
               ),
-              const SizedBox(height: 24),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
+
+  // ------------------- Helper Methods -------------------
 
   void _selectDate(BuildContext context, bool isInvoiceDate) async {
     final pickedDate = await showDatePicker(
@@ -498,9 +501,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
         _quantityController.text.isEmpty ||
         _unitPriceController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please fill all required fields'),
-        ),
+        const SnackBar(content: Text('Please fill all required fields')),
       );
       return;
     }
@@ -515,10 +516,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
           : double.tryParse(_discountController.text.trim()),
     );
 
-    setState(() {
-      _items.add(newItem);
-    });
-
+    setState(() => _items.add(newItem));
     Navigator.pop(context);
   }
 
@@ -539,33 +537,25 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             children: [
               TextFormField(
                 controller: _itemNameController,
-                decoration: const InputDecoration(
-                  labelText: 'Item Name',
-                ),
+                decoration: const InputDecoration(labelText: 'Item Name'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _quantityController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Quantity',
-                ),
+                decoration: const InputDecoration(labelText: 'Quantity'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _unitPriceController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Unit Price',
-                ),
+                decoration: const InputDecoration(labelText: 'Unit Price'),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _discountController,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'Discount (%)',
-                ),
+                decoration: const InputDecoration(labelText: 'Discount (%)'),
               ),
             ],
           ),
@@ -587,10 +577,7 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     : null,
               );
 
-              setState(() {
-                _items[index] = updatedItem;
-              });
-
+              setState(() => _items[index] = updatedItem);
               Navigator.pop(context);
             },
             child: const Text('Update'),
@@ -601,15 +588,11 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
   }
 
   void _submitForm() {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    if (!_formKey.currentState!.validate()) return;
 
     if (_items.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please add at least one item'),
-        ),
+        const SnackBar(content: Text('Please add at least one item')),
       );
       return;
     }
@@ -636,25 +619,23 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
       taxPercentage: double.parse(_taxPercentageController.text),
       notes: _notesController.text.isEmpty ? null : _notesController.text,
       status: widget.invoiceToEdit?.status ?? InvoiceStatus.unpaid,
-      currency: businessProvider.settings.currency,
+      currency: businessProvider.settings!.currency,
       createdAt: widget.invoiceToEdit?.createdAt ?? DateTime.now(),
       updatedAt: DateTime.now(),
     );
 
-    if (widget.invoiceToEdit == null) {
+    if (isEditing) {
+      invoiceProvider.updateInvoice(invoice);
+    } else {
       invoiceProvider.createInvoice(invoice);
       businessProvider.incrementInvoiceNumber();
-    } else {
-      invoiceProvider.updateInvoice(invoice);
     }
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          widget.invoiceToEdit == null
-              ? 'Invoice created successfully'
-              : 'Invoice updated successfully',
-        ),
+        content: Text(isEditing
+            ? 'Invoice updated successfully'
+            : 'Invoice created successfully'),
       ),
     );
 
