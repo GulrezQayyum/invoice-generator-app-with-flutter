@@ -1,14 +1,13 @@
 import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
-import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import '../models/invoice_model.dart';
 
 class PDFService {
   final DateFormat dateFormat = DateFormat('MMM dd, yyyy');
-  final NumberFormat currencyFormat = NumberFormat.currency(symbol: '');
 
+  /// Generate a PDF file for the given invoice and return the File object.
   Future<File> generatePDF(Invoice invoice) async {
     final pdf = pw.Document();
 
@@ -123,7 +122,7 @@ class PDFService {
                         ),
                         pw.SizedBox(width: 50),
                         pw.Text(
-                          '${invoice.currency} ${currencyFormat.format(invoice.subtotal)}',
+                          '${invoice.currency} ${_formatCurrency(invoice.subtotal)}',
                         ),
                       ],
                     ),
@@ -136,7 +135,7 @@ class PDFService {
                         ),
                         pw.SizedBox(width: 50),
                         pw.Text(
-                          '${invoice.currency} ${currencyFormat.format(invoice.taxAmount)}',
+                          '${invoice.currency} ${_formatCurrency(invoice.taxAmount)}',
                         ),
                       ],
                     ),
@@ -153,7 +152,7 @@ class PDFService {
                         ),
                         pw.SizedBox(width: 50),
                         pw.Text(
-                          '${invoice.currency} ${currencyFormat.format(invoice.total)}',
+                          '${invoice.currency} ${_formatCurrency(invoice.total)}',
                           style: pw.TextStyle(fontSize: 14),
                         ),
                       ],
@@ -255,7 +254,7 @@ class PDFService {
               ),
               pw.Padding(
                 padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(currencyFormat.format(item.unitPrice)),
+                child: pw.Text('${_formatCurrency(item.unitPrice)}'),
               ),
               pw.Padding(
                 padding: const pw.EdgeInsets.all(8),
@@ -263,7 +262,7 @@ class PDFService {
               ),
               pw.Padding(
                 padding: const pw.EdgeInsets.all(8),
-                child: pw.Text(currencyFormat.format(item.total)),
+                child: pw.Text('${_formatCurrency(item.total)}'),
               ),
             ],
           );
@@ -272,9 +271,15 @@ class PDFService {
     );
   }
 
+  /// Formats a double with exactly 2 decimal places (no currency symbol).
+  String _formatCurrency(double value) {
+    return value.toStringAsFixed(2);
+  }
+
+  /// Saves the PDF to the system's temporary directory (no plugins required).
   Future<File> _savePDF(pw.Document pdf, String filename) async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = Directory.systemTemp;
       final file = File('${directory.path}/$filename');
       await file.writeAsBytes(await pdf.save());
       return file;
@@ -283,9 +288,10 @@ class PDFService {
     }
   }
 
+  /// Returns the full path of a previously generated PDF, if it exists.
   Future<String?> getPDFPath(String invoiceNumber) async {
     try {
-      final directory = await getApplicationDocumentsDirectory();
+      final directory = Directory.systemTemp;
       final filename = 'invoice_${invoiceNumber.replaceAll('-', '_')}.pdf';
       final file = File('${directory.path}/$filename');
       if (await file.exists()) {
