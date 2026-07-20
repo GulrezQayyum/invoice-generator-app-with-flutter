@@ -1,0 +1,15 @@
+*.dart linguist-language=Dart
+
+*.c linguist-language=Text
+*.cpp linguist-language=Text
+*.h linguist-language=Text
+*.hpp linguist-language=Text
+CMakeLists.txt linguist-language=Text
+
+android/** linguist-vendored
+linux/** linguist-vendored
+windows/** linguist-vendored
+macos/** linguist-vendored
+
+# Force all files to be counted as Dart (overrides all previous language rules)
+* linguist-language=Dart
