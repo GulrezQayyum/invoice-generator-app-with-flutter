@@ -4,8 +4,8 @@ import '../models/settings_model.dart';
 import '../services/database_service.dart';
 
 class BusinessProvider extends ChangeNotifier {
-  final DatabaseService _dbService = DatabaseService();
-  
+  final DatabaseService _dbService = DatabaseService.instance;
+
   // Initialized with default values to prevent LateInitializationError
   AppSettings _settings = AppSettings(
     currency: 'USD',

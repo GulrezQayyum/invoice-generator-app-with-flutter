@@ -4,7 +4,7 @@ import '../models/invoice_model.dart';
 import '../services/database_service.dart';
 
 class InvoiceProvider extends ChangeNotifier {
-  final DatabaseService _dbService = DatabaseService();
+  final DatabaseService _dbService = DatabaseService.instance;
   List<Invoice> _invoices = [];
   Invoice? _selectedInvoice;
   bool _isLoading = false;
